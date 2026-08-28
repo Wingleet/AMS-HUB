@@ -1,0 +1,81 @@
+# Caddyfile for the AMS APPS HUB behind the shared Caddy of the Hostinger VPS.
+#
+# The repo's own Caddyfile expects to own the machine: it binds 80/443 and asks
+# Let's Encrypt for its own certificate. On this VPS those ports belong to the
+# central Caddy in /root/caddy, which already serves isdr, ideck, iplanninghr
+# and quality. So this one speaks plain HTTP on :80, published on the docker
+# bridge gateway only, and the outer Caddy handles TLS for hub.wingleet.tech.
+
+{
+	# Let's Encrypt is the outer Caddy's job. Two issuers for one hostname would
+	# fight over the ACME challenge.
+	auto_https off
+	admin off
+
+	# Caddy discards X-Forwarded-For from clients it does not trust. Here the
+	# client is the central Caddy on this same host, so without this every
+	# request would look like it came from the bridge gateway.
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+# PHP-FPM backend. The document root lives in the backend_public volume, shared
+# read-only with this container: Caddy needs the real files on disk for
+# try_files and for the EasyAdmin assets under /bundles.
+(php_backend) {
+	root * /var/www/backend/public
+	try_files {path} /index.php
+	php_fastcgi backend:9000 {
+		root /var/www/backend/public
+		index index.php
+		# The outer proxy already served this over TLS. Without it Symfony
+		# generates http:// URLs and the browser blocks them as mixed content.
+		header_up X-Forwarded-Proto https
+		header_up X-Forwarded-Host {host}
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+	}
+}
+
+:80 {
+	# Named matchers rather than inline ones, so each block can list both the
+	# bare path and its subtree — /api is a real route, not only /api/*.
+	@backend {
+		path /sso /sso/*
+		path /api /api/*
+		path /admin /admin/*
+	}
+	handle @backend {
+		import php_backend
+	}
+
+	# Static assets EasyAdmin loads, served straight off the shared volume.
+	@bundles {
+		path /bundles/*
+	}
+	handle @bundles {
+		root * /var/www/backend/public
+		file_server
+	}
+
+	# React SPA.
+	handle {
+		reverse_proxy frontend:80
+	}
+
+	header {
+		X-Frame-Options "SAMEORIGIN"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+		-X-Powered-By
+	}
+
+	encode gzip zstd
+
+	log {
+		output stdout
+		format console
+	}
+}

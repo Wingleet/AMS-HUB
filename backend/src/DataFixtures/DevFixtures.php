@@ -2,6 +2,7 @@
 
 namespace App\DataFixtures;
 
+use App\Catalog\ApplicationCatalog;
 use App\Entity\Application;
 use App\Entity\Organization;
 use App\Entity\Subscription;
@@ -56,85 +57,7 @@ class DevFixtures extends Fixture implements FixtureGroupInterface
      */
     private function createApplications(ObjectManager $manager): array
     {
-        $applicationsData = [
-            [
-                'name' => 'iSDR',
-                'description' => 'Aircraft Maintenance & SDR Management Platform',
-                'url' => 'https://isdr.amc.local',
-                'databaseName' => 'app_isdr_prod',
-                'isActive' => true,
-            ],
-            [
-                'name' => 'iDismantling',
-                'description' => 'Dismantling Management Platform',
-                'url' => 'https://idismantling.amc.local',
-                'databaseName' => 'app_idismantling_prod',
-                'isActive' => true,
-            ],
-            [
-                'name' => 'iKanban',
-                'description' => 'Visual Task Tracking and Workflow Management Platform',
-                'url' => 'https://ikanban.amc.local',
-                'databaseName' => 'app_ikanban_prod',
-                'isActive' => true,
-            ],
-            [
-                'name' => 'iARC',
-                'description' => 'ARC Compliance & Certification Platform',
-                'url' => 'https://iarc.amc.local',
-                'databaseName' => 'app_iarc_prod',
-                'isActive' => false,
-            ],
-            [
-                'name' => 'iInventory',
-                'description' => 'Parts & Inventory Management System',
-                'url' => 'https://iinventory.amc.local',
-                'databaseName' => 'app_iinventory_prod',
-                'isActive' => true,
-            ],
-            [
-                'name' => 'iPlanning',
-                'description' => 'Project & Resource Planning Tool',
-                'url' => 'https://iplanning.amc.local',
-                'databaseName' => 'app_iplanning_prod',
-                'isActive' => true,
-            ],
-            [
-                'name' => 'iReporting',
-                'description' => 'Advanced Analytics & Reporting Suite',
-                'url' => 'https://ireporting.amc.local',
-                'databaseName' => 'app_ireporting_prod',
-                'isActive' => true,
-            ],
-            [
-                'name' => 'iTraining',
-                'description' => 'Training & Certification Management',
-                'url' => 'https://itraining.amc.local',
-                'databaseName' => 'app_itraining_prod',
-                'isActive' => true,
-            ],
-            [
-                'name' => 'iQuality',
-                'description' => 'Quality Control & Compliance Platform',
-                'url' => 'https://iquality.amc.local',
-                'databaseName' => 'app_iquality_prod',
-                'isActive' => true,
-            ],
-            [
-                'name' => 'iDocumentation',
-                'description' => 'Document Management & Control System',
-                'url' => 'https://idocumentation.amc.local',
-                'databaseName' => 'app_idocumentation_prod',
-                'isActive' => true,
-            ],
-            [
-                'name' => 'SSO_App',
-                'description' => 'Central Single Sign-On Authentication Application',
-                'url' => 'http://localhost:3000',
-                'databaseName' => null,
-                'isActive' => true,
-            ],
-        ];
+        $applicationsData = ApplicationCatalog::APPLICATIONS;
 
         $applications = [];
         foreach ($applicationsData as $data) {
@@ -142,6 +65,7 @@ class DevFixtures extends Fixture implements FixtureGroupInterface
             $app->setName($data['name']);
             $app->setDescription($data['description']);
             $app->setUrl($data['url']);
+            $app->setIconUrl($data['iconUrl']);
             $app->setDatabaseName($data['databaseName']);
             $app->setIsActive($data['isActive']);
             

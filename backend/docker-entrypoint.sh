@@ -15,6 +15,19 @@ echo "${BLUE}=====================================${NC}"
 # APP_ENV env var injected by Docker Compose, so it works for all envs.
 printf "APP_ENV=%s\nAPP_DEBUG=%s\n" "${APP_ENV:-dev}" "${APP_DEBUG:-1}" > /var/www/backend/.env
 
+# In production var/ is a persistent volume, so the compiled container survives
+# a rebuild and the .initialized guard below would skip the warmup — the new
+# image would run yesterday's compiled config. Rebuild it on every start; it
+# costs a few seconds and it is the difference between deploying and appearing
+# to deploy.
+if [ "$APP_ENV" = "prod" ] && [ -f /var/www/backend/var/.initialized ]; then
+    echo "${BLUE}Rebuilding production cache...${NC}"
+    php bin/console cache:clear --no-warmup
+    php bin/console cache:warmup
+    php bin/console assets:install --no-interaction > /dev/null 2>&1 || true
+    echo "${GREEN}✓ Production cache rebuilt${NC}"
+fi
+
 # First run: install dependencies and warm up cache
 if [ ! -f /var/www/backend/var/.initialized ]; then
     echo "${BLUE}First run: initializing application...${NC}"
@@ -74,6 +87,12 @@ if [ "$APP_ENV" != "prod" ]; then
         echo "${GREEN}✓ Database already contains data (${USER_COUNT} users found)${NC}"
     fi
 fi
+
+# Everything above runs as root, so var/ ends up root-owned while php-fpm
+# serves as www-data. Symfony's cache pools are written at runtime, not at
+# warmup: the rate limiters and the AMS login throttle silently fail to persist
+# when this is missing — they read back zero every time and never trip.
+chown -R www-data:www-data /var/www/backend/var
 
 echo "${GREEN}=====================================${NC}"
 echo "${GREEN}✓ Application ready${NC}"

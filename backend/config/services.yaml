@@ -5,6 +5,14 @@
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
     jwt_secret: "%env(JWT_SECRET)%"
+    # Fallbacks for the optional AMS/hub settings below. `default::VAR` yields
+    # null when a variable is unset, which these two must not be — hence a named
+    # parameter rather than an empty default.
+    ams_api_version_default: "v1"
+    hub_default_organization: "AMC Aviation"
+    # `default::VAR` resolves to null, and both consumers are typed string —
+    # null would be a TypeError, so the fallback is an explicit empty string.
+    empty_string_default: ""
 
 services:
     # default configuration for services in *this* file
@@ -30,3 +38,13 @@ services:
             $amsApiDb: "%env(AMS_API_DB)%"
             $amsApiUser: "%env(AMS_API_USER)%"
             $amsApiPassword: "%env(AMS_API_PASSWORD)%"
+            $amsApiDbPassword: '%env(default:empty_string_default:AMS_API_DB_PASSWORD)%'
+            $amsApiVersion: '%env(default:ams_api_version_default:AMS_API_VERSION)%'
+
+    App\Service\AuthService:
+        arguments:
+            $defaultOrganizationName: '%env(default:hub_default_organization:HUB_DEFAULT_ORGANIZATION)%'
+            # AMS knows nothing about hub roles, so the accounts allowed into
+            # EasyAdmin are named here. Empty means nobody — deliberate: an
+            # unset variable must not silently grant admin.
+            $adminUsernames: '%env(default:empty_string_default:HUB_ADMIN_USERNAMES)%'

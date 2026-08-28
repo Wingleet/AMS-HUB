@@ -14,6 +14,8 @@ class AmsApiService
     private ?string $token = null;
     private string $baseUrl;
     private string $apiDb;
+    private string $apiDbPassword;
+    private string $apiVersion;
     private string $apiUser;
     private string $apiPassword;
 
@@ -24,41 +26,133 @@ class AmsApiService
         string $amsApiDb,
         string $amsApiUser,
         string $amsApiPassword,
+        string $amsApiDbPassword = '',
+        string $amsApiVersion = 'v1',
     ) {
         $this->baseUrl = rtrim($amsApiUrl, '/');
         $this->apiDb = $amsApiDb;
+        $this->apiDbPassword = $amsApiDbPassword;
+        $this->apiVersion = $amsApiVersion;
         $this->apiUser = $amsApiUser;
         $this->apiPassword = $amsApiPassword;
     }
 
     /**
-     * Make a request to the Login endpoint
+     * Call the AMS /Login endpoint and return the raw response.
      *
-     * @param string $username Username or email
-     * @param string $password Password
-     * @return array Response data with statusCode and data
-     * @throws TransportExceptionInterface
-     * @throws ClientExceptionInterface
-     * @throws RedirectExceptionInterface
-     * @throws ServerExceptionInterface
+     * Follows the contract documented in CLAUDE/api/docs: POST, Basic auth, and
+     * the `version` / `serverdb` / `serverdbpass` headers — all three are
+     * mandatory, AMS answers 403 when any is missing. 401 means bad
+     * credentials, 403 an unknown serverdb or insufficient rights.
+     *
+     * @return array{statusCode: int, body: string}
      */
-    private function loginRequest(string $username, string $password): array
-    {
+    private function loginRequest(
+        string $username,
+        string $password,
+        ?string $serverDb = null,
+        ?string $serverDbPass = null,
+    ): array {
         $response = $this->httpClient->request(
-            'GET',
+            'POST',
             $this->baseUrl . '/Login',
             [
                 'auth_basic' => [$username, $password],
                 'headers' => [
-                    'serverDB' => $this->apiDb,
+                    'version' => $this->apiVersion,
+                    'serverdb' => $serverDb ?? $this->apiDb,
+                    'serverdbpass' => $serverDbPass ?? $this->apiDbPassword,
+                    'Accept' => 'application/json',
                 ],
             ]
         );
 
         return [
             'statusCode' => $response->getStatusCode(),
-            'data' => $response->toArray(),
+            // Deliberately not toArray(): AMS returns the token either as a
+            // bare string or wrapped in JSON, and toArray() throws on the
+            // former. extractToken() handles both shapes.
+            'body' => $response->getContent(false),
         ];
+    }
+
+    /**
+     * Pull the token out of an AMS /Login response body.
+     *
+     * AMS is inconsistent here: the token comes back as raw text on some
+     * builds and as JSON on others, under `token`, `Token` or `bearerToken`.
+     */
+    private function extractToken(string $body): ?string
+    {
+        $body = trim($body);
+
+        if ($body === '') {
+            return null;
+        }
+
+        $decoded = json_decode($body, true);
+
+        if (is_array($decoded)) {
+            foreach (['token', 'Token', 'bearerToken'] as $key) {
+                if (!empty($decoded[$key]) && is_string($decoded[$key])) {
+                    return $decoded[$key];
+                }
+            }
+
+            return null;
+        }
+
+        // Raw token: a JWT, so three dot-separated segments and no whitespace.
+        return substr_count($body, '.') === 2 && !preg_match('/\s/', $body)
+            ? $body
+            : null;
+    }
+
+    /**
+     * Authenticate an end user against AMS and return their token.
+     *
+     * This is the hub's sign-in path: the credentials are the user's own, not
+     * the service account, so no AMS_API_USER needs to be configured for it to
+     * work. Returns null on any failure — invalid credentials, locked account,
+     * AMS unreachable — deliberately without distinguishing them to the caller,
+     * which must not leak which usernames exist.
+     */
+    public function login(
+        string $username,
+        string $password,
+        ?string $serverDb = null,
+        ?string $serverDbPass = null,
+    ): ?string {
+        try {
+            $response = $this->loginRequest($username, $password, $serverDb, $serverDbPass);
+
+            if ($response['statusCode'] !== 200) {
+                $this->logger->warning('AMS login rejected', [
+                    'username' => $username,
+                    'serverdb' => $serverDb ?? $this->apiDb,
+                    'status_code' => $response['statusCode'],
+                ]);
+
+                return null;
+            }
+
+            $token = $this->extractToken($response['body']);
+
+            if ($token === null) {
+                $this->logger->error('AMS login returned 200 without a usable token', [
+                    'username' => $username,
+                ]);
+            }
+
+            return $token;
+        } catch (\Exception $e) {
+            $this->logger->error('AMS login error', [
+                'username' => $username,
+                'exception' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
     /**
@@ -72,25 +166,40 @@ class AmsApiService
      */
     public function authenticate(): bool
     {
-        try {
-            $response = $this->loginRequest($this->apiUser, $this->apiPassword);
-            $data = $response['data'];
-            
-            if (!isset($data['token'])) {
-                $this->logger->error('No token received from AMS API', ['response' => $data]);
-                return false;
-            }
+        if ($this->apiUser === '') {
+            $this->logger->error('AMS service account is not configured (AMS_API_USER is empty)');
 
-            $this->token = $data['token'];
-            $this->logger->info('Successfully authenticated with AMS API');
-            return true;
-        } catch (\Exception $e) {
-            $this->logger->error('AMS API authentication failed', [
-                'exception' => $e->getMessage(),
-                'url' => $this->baseUrl . '/Login',
-            ]);
             return false;
         }
+
+        $this->token = $this->login($this->apiUser, $this->apiPassword);
+
+        if ($this->token === null) {
+            return false;
+        }
+
+        $this->logger->info('Successfully authenticated with AMS API');
+
+        return true;
+    }
+
+    /**
+     * Headers every authenticated /v1/* call must carry.
+     *
+     * `version` and `serverdb` are mandatory on each request, not just on
+     * /Login — AMS answers 403 when either is missing.
+     *
+     * @return array<string, string>
+     */
+    private function authenticatedHeaders(): array
+    {
+        return [
+            'Authorization' => 'Bearer ' . $this->token,
+            'version' => $this->apiVersion,
+            'serverdb' => $this->apiDb,
+            'serverdbpass' => $this->apiDbPassword,
+            'Accept' => 'application/json',
+        ];
     }
 
     /**
@@ -135,10 +244,7 @@ class AmsApiService
                 'GET',
                 $this->baseUrl . '/v1/ttiercomp',
                 [
-                    'headers' => [
-                        'Authorization' => 'Bearer ' . $this->token,
-                        'serverDB' => $this->apiDb,
-                    ],
+                    'headers' => $this->authenticatedHeaders(),
                 ]
             );
 
@@ -174,10 +280,7 @@ class AmsApiService
                 'GET',
                 $this->baseUrl . '/v1/user',
                 [
-                    'headers' => [
-                        'Authorization' => 'Bearer ' . $this->token,
-                        'serverDB' => $this->apiDb,
-                    ],
+                    'headers' => $this->authenticatedHeaders(),
                 ]
             );
 
@@ -190,6 +293,14 @@ class AmsApiService
             ]);
             return [];
         }
+    }
+
+    /**
+     * The database used when a caller supplies none.
+     */
+    public function getDefaultServerDb(): string
+    {
+        return $this->apiDb;
     }
 
     /**
@@ -209,35 +320,12 @@ class AmsApiService
     }
 
     /**
-     * Validate user credentials against AMS API
-     * Uses the /Login endpoint (without /v1/ prefix) to verify user credentials
+     * Validate user credentials against AMS.
      *
-     * @param string $username User username (or email as fallback)
-     * @param string $password User password
-     * @return bool True if credentials are valid
+     * Thin boolean wrapper over login() for callers that do not need the token.
      */
     public function validateUserCredentials(string $username, string $password): bool
     {
-        try {
-            $response = $this->loginRequest($username, $password);
-            
-            // If the response is HTTP 200 OK, credentials are valid
-            if ($response['statusCode'] === 200) {
-                $this->logger->info('AMS user authentication successful', ['username' => $username]);
-                return true;
-            }
-
-            $this->logger->warning('AMS user authentication failed', [
-                'username' => $username,
-                'status_code' => $response['statusCode'],
-            ]);
-            return false;
-        } catch (\Exception $e) {
-            $this->logger->error('AMS user authentication error', [
-                'username' => $username,
-                'exception' => $e->getMessage(),
-            ]);
-            return false;
-        }
+        return $this->login($username, $password) !== null;
     }
 }

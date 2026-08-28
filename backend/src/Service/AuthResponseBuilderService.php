@@ -53,12 +53,28 @@ class AuthResponseBuilderService
     /**
      * Validate and parse JSON login request
      */
+    /**
+     * An empty string from a form field means "not provided", not "empty value" —
+     * the difference matters, since only null falls back to the configured
+     * database.
+     */
+    private function blankToNull(?string $value): ?string
+    {
+        $value = $value === null ? null : trim($value);
+
+        return $value === '' ? null : $value;
+    }
+
     public function validateLoginRequest(array $data): LoginRequest|JsonResponse
     {
         $loginRequest = new LoginRequest();
         $loginRequest->username = $data['username'] ?? $data['identifier'] ?? $data['email'] ?? '';
         $loginRequest->password = $data['password'] ?? '';
         $loginRequest->rememberMe = $data['rememberMe'] ?? false;
+        // Accepted under either casing: the hub form sends serverdb/serverdbpass,
+        // matching the AMS header names iDeck uses.
+        $loginRequest->serverDb = $this->blankToNull($data['serverdb'] ?? $data['serverDb'] ?? null);
+        $loginRequest->serverDbPass = $this->blankToNull($data['serverdbpass'] ?? $data['serverDbPass'] ?? null);
 
         $errors = $this->validator->validate($loginRequest);
         if (count($errors) > 0) {
@@ -135,6 +151,7 @@ class AuthResponseBuilderService
             'roles' => $user->getRoles(),
             'isAdmin' => $user->isAdmin(),
             'isActive' => $user->isActive(),
+            'amsServerDb' => $user->getAmsServerDb(),
             'createdAt' => $user->getCreatedAt()?->format('Y-m-d\TH:i:s\Z'),
             'lastLoginAt' => $user->getLastLoginAt()?->format('Y-m-d\TH:i:s\Z'),
         ];

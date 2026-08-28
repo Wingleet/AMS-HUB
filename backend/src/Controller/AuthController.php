@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Attribute\RateLimit;
 use App\Enum\UserRole;
+use App\Exception\LoginThrottledException;
 use App\Repository\UserRepository;
 use App\Service\AuthResponseBuilderService;
 use App\Service\AuthService;
@@ -50,65 +51,14 @@ class AuthController extends AbstractController
     #[RateLimit(limiter: 'login_limiter')]
     public function register(Request $request): JsonResponse
     {
-        try {
-            $data = json_decode($request->getContent(), true);
-            
-            if (!$data) {
-                return $this->json([
-                    'success' => false,
-                    'message' => 'Invalid JSON'
-                ], Response::HTTP_BAD_REQUEST);
-            }
-
-            $registerRequest = $this->authResponseBuilder->validateRegisterRequest($data);
-            if ($registerRequest instanceof JsonResponse) {
-                return $registerRequest;
-            }
-
-            $isAdminRoute = $this->isAdminRoute($request);
-
-            $user = $this->authService->register(
-                $registerRequest->email,
-                $registerRequest->password,
-                $registerRequest->firstName,
-                $registerRequest->lastName
-            );
-
-            // Add ADMIN role if admin registration route
-            if ($isAdminRoute) {
-                $user->addRole(UserRole::ADMIN);
-                $this->entityManager->persist($user);
-                $this->entityManager->flush();
-            }
-
-            $successMessage = $isAdminRoute ? 'Admin registration successful' : 'Registration successful';
-            $responseData = $this->authResponseBuilder->buildRegistrationResponse($user, $successMessage);
-
-            $response = $this->json([
-                'success' => true,
-                'message' => $responseData['message'],
-                'user' => $responseData['userData']
-            ], Response::HTTP_CREATED);
-
-            $response->headers->setCookie(
-                $this->createSecureCookie('access_token', $responseData['accessToken'], $responseData['accessTokenExpiry'])
-            );
-            $response->headers->setCookie(
-                $this->createSecureCookie('refresh_token', $responseData['refreshToken'], $responseData['refreshTokenExpiry'])
-            );
-
-            return $response;
-        } catch (\InvalidArgumentException $e) {
-            return $this->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], Response::HTTP_CONFLICT);
-        } catch (\Exception $e) {
-            return $this->json([
-                'success' => false,
-                'message' => 'An error occurred during registration'
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
+        // Sign-in goes through AMS, which owns the credentials, and the hub
+        // stores no password for those accounts. Anything registered here would
+        // be an account nobody could ever sign in with — so the route is closed
+        // rather than left as a trap. Hub accounts appear on first AMS sign-in.
+        return $this->json([
+            'success' => false,
+            'message' => 'Accounts are managed in AMS. Sign in with your AMS credentials and your hub account is created automatically.'
+        ], Response::HTTP_FORBIDDEN);
     }
 
     /**
@@ -134,7 +84,24 @@ class AuthController extends AbstractController
                 return $loginRequest;
             }
 
-            $user = $this->authService->verifyCredentials($loginRequest->username, $loginRequest->password);
+            try {
+                $user = $this->authService->verifyCredentials(
+                    $loginRequest->username,
+                    $loginRequest->password,
+                    $loginRequest->serverDb,
+                    $loginRequest->serverDbPass,
+                );
+            } catch (LoginThrottledException $e) {
+                // 429 rather than 401: retyping the password is exactly what
+                // would lock the account on the AMS side.
+                $response = $this->json([
+                    'success' => false,
+                    'message' => 'Too many failed attempts. Wait a few minutes before trying again, otherwise AMS will lock your account.'
+                ], Response::HTTP_TOO_MANY_REQUESTS);
+                $response->headers->set('Retry-After', (string) $e->getRetryAfterSeconds());
+
+                return $response;
+            }
 
             if (!$user) {
                 return $this->json([
@@ -152,12 +119,10 @@ class AuthController extends AbstractController
                 ], Response::HTTP_FORBIDDEN);
             }
 
-            if (!$isAdminRoute && $user->isAdmin()) {
-                return $this->json([
-                    'success' => false,
-                    'message' => 'Admin users must log in via the admin portal.'
-                ], Response::HTTP_FORBIDDEN);
-            }
+            // Admins are deliberately allowed on the portal too. The rule that
+            // sent them away predates AMS sign-in, when portal and back office
+            // were separate account sets; now one AMS account is one person,
+            // and locking an admin out of the app hub serves nothing.
 
             $responseData = $this->authResponseBuilder->buildLoginResponse(
                 $user,

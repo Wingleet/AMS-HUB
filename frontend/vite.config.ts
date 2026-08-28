@@ -22,6 +22,12 @@ export default defineConfig(({ mode }) => {
       "import.meta.env.VITE_API_URL": JSON.stringify(
         env.VITE_API_URL || process.env.VITE_API_URL || "http://localhost",
       ),
+      // Prefills the Database field on the sign-in form. Defined explicitly
+      // like VITE_API_URL above, so a value passed as a Docker build arg lands
+      // in the bundle without needing a .env file in the build context.
+      "import.meta.env.VITE_DEFAULT_SERVER_DB": JSON.stringify(
+        env.VITE_DEFAULT_SERVER_DB || process.env.VITE_DEFAULT_SERVER_DB || "",
+      ),
     },
     server: {
       port: 5173,

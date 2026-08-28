@@ -69,9 +69,17 @@ class Application
     #[Groups(['application:read', 'application:write', 'subscription:read'])]
     private ?string $url = null;
 
+    /**
+     * Logo shown on the hub tile.
+     *
+     * Accepts a root-relative path as well as an absolute URL: logos served by
+     * the hub itself (public/app-logos/…) must stay portable across dev,
+     * staging and production, which hardcoding a host would prevent.
+     */
     #[ORM\Column(length: 255, nullable: true)]
-    #[Assert\Url(
-    message: 'The icon URL must be a valid URL.'
+    #[Assert\Regex(
+        pattern: '#^(https?://\S+|/\S*)$#',
+        message: 'The icon URL must be an absolute URL or a path starting with "/".'
     )]
     #[Groups(['application:read', 'application:write', 'subscription:read'])]
     private ?string $iconUrl = null;
@@ -253,5 +261,20 @@ class Application
     {
         $this->ssoCallbackUrl = $ssoCallbackUrl;
         return $this;
+    }
+
+    /**
+     * Whether /sso/authorize can hand this application a session.
+     *
+     * Applications that are not wired to the hub's SSO have no callback URL, and
+     * authorize() rejects them with a 400. The front-end reads this to link to
+     * application.url directly instead of through the SSO flow. The callback URL
+     * itself stays out of the read group, only the capability is exposed.
+     */
+    #[Groups(['application:read', 'subscription:read'])]
+    #[SerializedName('supportsSso')]
+    public function getSupportsSso(): bool
+    {
+        return $this->ssoCallbackUrl !== null && $this->ssoCallbackUrl !== '';
     }
 }
