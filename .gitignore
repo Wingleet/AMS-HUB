@@ -1,0 +1,26 @@
+# Dependances
+node_modules/
+vendor/
+
+# Build
+dist/
+build/
+frontend/.vite/
+
+# Secrets — jamais publies
+.env
+.env.local
+.env.prod
+.env.*.local
+!.env*.example
+
+# Symfony
+backend/var/
+backend/public/bundles/
+
+# Systeme
+.DS_Store
+*.log
+
+# Documentation interne — non publiee (regle projet)
+*.md
