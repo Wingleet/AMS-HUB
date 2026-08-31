@@ -1,0 +1,87 @@
+# =============================================================================
+# Deploy ams-hub (iHub) to the staging server on every push to `staging`
+# =============================================================================
+# The job only opens an SSH connection: the deployment itself is performed by
+# /usr/local/bin/deploy-staging on the staging host, registered as the forced
+# command of this key in ~debian/.ssh/authorized_keys. The key can deploy only
+# this application and cannot obtain a shell, so it cannot reach the other
+# applications hosted on the same server.
+#
+# What the host script does: fetch `staging`, update the checkout, run the
+# application's own staging build, health-check the stack, and roll back to the
+# previous commit when the build or the health check fails. Its whole output is
+# streamed back here. Per-application settings live in
+# /etc/staging-deploy/ihub.conf on the host.
+#
+# Secret required: STAGING_DEPLOY_KEY (private half of this app's deploy key).
+# =============================================================================
+name: Deploy staging
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch: # manual re-deploy from the Actions tab
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false # never interrupt a deployment in progress
+
+jobs:
+  deploy:
+    name: Deploy to staging-ihub.wingleetdev.com
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: staging
+      url: https://staging-ihub.wingleetdev.com
+
+    env:
+      STAGING_HOST: 162.19.127.20
+      STAGING_USER: debian
+      # Pinned host key: a rebuilt server makes the job fail loudly instead of
+      # trusting an unknown host. Update this line if the host is reinstalled.
+      STAGING_HOST_KEY: "162.19.127.20 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC/DW25L+2/T/RVuw9j/OxOcH7lHsj1EzN2TQLD0wlxf"
+
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_KEY: ${{ secrets.STAGING_DEPLOY_KEY }}
+        run: |
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo "::error::secret STAGING_DEPLOY_KEY is missing"
+            exit 1
+          fi
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$STAGING_HOST_KEY" > ~/.ssh/known_hosts
+
+      - name: Deploy ${{ github.sha }}
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              -o IdentitiesOnly=yes \
+              -o BatchMode=yes \
+              -o ConnectTimeout=15 \
+              -o ServerAliveInterval=30 \
+              "$STAGING_USER@$STAGING_HOST" "${{ github.sha }}"
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "### ✅ Staging updated" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### ❌ Deployment failed — the server rolled back to the previous commit" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          {
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Author | ${{ github.actor }} |"
+            echo "| URL | https://staging-ihub.wingleetdev.com |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Clean up SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
