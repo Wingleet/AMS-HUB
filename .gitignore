@@ -24,3 +24,6 @@ backend/public/bundles/
 
 # Documentation interne — non publiee (regle projet)
 *.md
+
+# Config et worktrees locaux de Claude Code : propres a la machine.
+.claude/
