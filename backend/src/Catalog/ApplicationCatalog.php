@@ -103,21 +103,28 @@ final class ApplicationCatalog
             'isActive' => true,
         ],
 
+        // ---- Deployed, but deliberately hidden from the launcher ------------
+        // Both run on the AMC server and answer over HTTPS at the addresses in
+        // the comments below; their tile is simply not wanted on the home page
+        // for now. The home page filters on `url`, not on `isActive`: an
+        // inactive entry still renders a tile carrying an "Inactive" badge, so
+        // only a null url actually removes it. The live address is kept here so
+        // restoring a tile is a one-line change.
         [
             'name' => 'iALB',
             'description' => 'Aircraft Log Book — Legs, Crews and Tech Situation',
-            'url' => 'https://staging-ialb.icare-ams.fr',
+            'url' => null, // live on https://staging-ialb.icare-ams.fr
             'iconUrl' => '/app-logos/icare-ams.png',
             'databaseName' => null,
-            'isActive' => true,
+            'isActive' => false,
         ],
         [
             'name' => 'iTech',
             'description' => 'Mechanic Workbench — Job Cards and Time Booking',
-            'url' => 'https://staging-itech.icare-ams.fr',
+            'url' => null, // live on https://staging-itech.icare-ams.fr
             'iconUrl' => '/app-logos/icare-ams.png',
             'databaseName' => null,
-            'isActive' => true,
+            'isActive' => false,
         ],
 
         // ---- Built, not hosted yet ------------------------------------------
