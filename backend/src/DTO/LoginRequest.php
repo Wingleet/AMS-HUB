@@ -13,4 +13,15 @@ class LoginRequest
     public string $password;
 
     public bool $rememberMe = false;
+
+    /**
+     * AMS database to authenticate against — the `serverdb` header.
+     *
+     * Null falls back to AMS_API_DB. The sign-in form sends it so a user can
+     * reach a database the server was not configured for, exactly as iDeck does.
+     */
+    public ?string $serverDb = null;
+
+    /** Optional password for that database — the `serverdbpass` header. */
+    public ?string $serverDbPass = null;
 }

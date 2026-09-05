@@ -37,6 +37,8 @@ COPY . .
 # Accept VITE_* build args so they get baked into the bundle
 ARG VITE_API_URL=http://localhost
 ENV VITE_API_URL=$VITE_API_URL
+ARG VITE_DEFAULT_SERVER_DB=
+ENV VITE_DEFAULT_SERVER_DB=$VITE_DEFAULT_SERVER_DB
 
 # Build the application
 RUN npm run build

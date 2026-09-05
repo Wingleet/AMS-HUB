@@ -1,0 +1,131 @@
+# AMS APPS HUB — Hostinger VPS deployment (hub.wingleet.tech).
+#
+# Self-contained, NOT layered on docker-compose.prod.yml: that file publishes
+# 80/443 for its own Caddy, which on this shared machine would collide with the
+# central Caddy in /root/caddy and take isdr, ideck, iplanninghr and quality
+# down with it. Here the proxy binds the docker bridge gateway only
+# (172.17.0.1:8084) — unreachable from the public IP, reachable by the central
+# Caddy through host.docker.internal:8084, which terminates TLS upstream.
+#
+# Environment lives in ./.env, which Compose auto-loads. Do NOT rename it: a
+# deploy launched from the Hostinger Docker manager passes no --env-file, and a
+# missing APP_SECRET/JWT_SECRET yields a container that starts and then refuses
+# every login.
+#
+#   docker compose -f docker-compose.vps.yml up -d --build
+#
+# `docker compose restart` does NOT re-read .env — values are substituted when
+# the container is created. After editing .env, run `up -d` again.
+
+services:
+  database:
+    image: postgres:16-alpine
+    container_name: hub-database-vps
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ams_apps_hub}
+      POSTGRES_USER: ${POSTGRES_USER:-hub}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - hub-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hub}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: hub-backend-vps
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: 0
+      APP_SECRET: ${APP_SECRET:?APP_SECRET is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-hub}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-ams_apps_hub}?serverVersion=16&charset=utf8
+      # Two proxies sit in front: this stack's Caddy, and the central one on the
+      # host. Both speak from the docker private ranges. Without this Symfony
+      # ignores X-Forwarded-Proto and redirects users to http://.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-private_ranges}
+      DEFAULT_URI: ${DEFAULT_URI:-https://hub.wingleet.tech}
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-^https://hub\.wingleet\.tech$$}
+      # Sign-in goes straight to AMS with the end user's own credentials, so
+      # AMS_API_USER/PASSWORD are only needed by app:sync-ams, not to log in.
+      AMS_API_URL: ${AMS_API_URL:-http://46.105.115.223:8181}
+      AMS_API_DB: ${AMS_API_DB:-app_test}
+      AMS_API_DB_PASSWORD: ${AMS_API_DB_PASSWORD:-}
+      AMS_API_VERSION: ${AMS_API_VERSION:-v1}
+      AMS_API_USER: ${AMS_API_USER:-}
+      AMS_API_PASSWORD: ${AMS_API_PASSWORD:-}
+      # AMS carries no hub roles: these AMS usernames get ROLE_ADMIN when their
+      # hub account is created on first sign-in. Empty means nobody reaches
+      # EasyAdmin — there is no local password left to fall back on.
+      HUB_ADMIN_USERNAMES: ${HUB_ADMIN_USERNAMES:-}
+      HUB_DEFAULT_ORGANIZATION: ${HUB_DEFAULT_ORGANIZATION:-AMC Aviation}
+    volumes:
+      - backend_var:/var/www/backend/var
+      # Shared with the proxy: Caddy needs the Symfony document root on disk to
+      # resolve try_files and serve /bundles.
+      - backend_public:/var/www/backend/public
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - hub-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+      args:
+        # Baked into the bundle at build time. vite.config.ts defines
+        # VITE_API_URL unconditionally (falling back to "http://localhost"), so
+        # apiClient's runtime origin detection never fires — this value must be
+        # the real public URL or every API call goes to localhost.
+        VITE_API_URL: ${VITE_API_URL:-https://hub.wingleet.tech}
+        # Prefills the Database field on the sign-in form, as iDeck does. Only a
+        # default: the user can type another database, and the last one that
+        # worked is remembered in their browser.
+        VITE_DEFAULT_SERVER_DB: ${VITE_DEFAULT_SERVER_DB:-${AMS_API_DB:-app_test}}
+    container_name: hub-frontend-vps
+    networks:
+      - hub-network
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: hub-caddy-vps
+    ports:
+      - "172.17.0.1:8084:80"
+    volumes:
+      - ./Caddyfile.vps:/etc/caddy/Caddyfile:ro
+      - backend_public:/var/www/backend/public:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - hub-network
+    restart: unless-stopped
+
+networks:
+  hub-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  backend_var:
+  # Populated from the backend image the first time it is created. A rebuild
+  # that changes public/ will NOT refresh it — `docker compose down` plus
+  # `docker volume rm ams-hub_backend_public` before `up` when that happens.
+  backend_public:
+  caddy_data:
+  caddy_config:

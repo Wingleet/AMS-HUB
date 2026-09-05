@@ -2,6 +2,14 @@
 framework:
     secret: "%env(APP_SECRET)%"
 
+    # Behind a reverse proxy Symfony ignores X-Forwarded-* unless the proxy is
+    # trusted, so it reads the scheme as http and generates http:// redirects —
+    # the EasyAdmin login and the SSO callbacks among them. Unset (dev, test,
+    # anything run directly) this resolves to null and nothing is trusted.
+    trusted_proxies: "%env(default::TRUSTED_PROXIES)%"
+    trusted_headers:
+        ["x-forwarded-for", "x-forwarded-host", "x-forwarded-proto", "x-forwarded-port"]
+
     # Note that the session will be started ONLY if you read or write from it.
     session:
         handler_id: null

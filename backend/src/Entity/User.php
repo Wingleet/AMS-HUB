@@ -70,24 +70,42 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private array $role = [];
 
     /**
-     * @var string The hashed password
+     * @var string|null The hashed password
+     *
+     * Null for AMS accounts: AMS is the authority on their credentials and the
+     * hub deliberately stores no password it would then have to keep in sync.
      */
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 255, nullable: true)]
     private ?string $password = null;
 
-    #[ORM\Column(length: 255)]
-    #[Assert\NotBlank]
+    /**
+     * Null until known. AMS answers a sign-in with a token, not a profile, so
+     * an account created on first sign-in has no name yet — app:sync-ams or
+     * EasyAdmin fills it in.
+     */
+    #[ORM\Column(length: 255, nullable: true)]
     #[Groups(['user:read', 'user:write'])]
     private ?string $firstname = null;
 
-    #[ORM\Column(length: 255)]
-    #[Assert\NotBlank]
+    #[ORM\Column(length: 255, nullable: true)]
     #[Groups(['user:read', 'user:write'])]
     private ?string $lastname = null;
 
     #[ORM\Column(type: 'datetime', nullable: true)]
     #[Groups(['user:read'])]
     private ?\DateTimeInterface $lastLoginAt = null;
+
+    /**
+     * AMS database this account last signed in to — the `serverdb` header.
+     *
+     * Stored on the user rather than carried in the JWT so it survives a token
+     * refresh without changing the token format, and so it is visible in
+     * EasyAdmin. The hub shows it in the header: which database you are looking
+     * at matters more, day to day, than which organization you belong to.
+     */
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Groups(['user:read'])]
+    private ?string $amsServerDb = null;
 
     #[ORM\Column(type: 'boolean', options: ['default' => true])]
     #[Groups(['user:read', 'user:write'])]
@@ -216,9 +234,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * A name to show for this user.
+     *
+     * Accounts created from AMS carry no name until a sync supplies one, and
+     * " " reads as a broken header — the AMS identifier is the honest fallback.
+     */
     public function getFullName(): string
     {
-        return $this->firstname . ' ' . $this->lastname;
+        $name = trim(($this->firstname ?? '') . ' ' . ($this->lastname ?? ''));
+
+        return $name !== '' ? $name : (string) ($this->username ?? $this->email);
     }
 
     public function __toString(): string
@@ -246,6 +272,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setIsActive(bool $isActive): static
     {
         $this->isActive = $isActive;
+
+        return $this;
+    }
+
+    public function getAmsServerDb(): ?string
+    {
+        return $this->amsServerDb;
+    }
+
+    public function setAmsServerDb(?string $amsServerDb): static
+    {
+        $this->amsServerDb = $amsServerDb;
 
         return $this;
     }
