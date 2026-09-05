@@ -26,11 +26,11 @@ namespace App\Catalog;
 final class ApplicationCatalog
 {
     public const APPLICATIONS = [
-        // ---- Hosted on the Hostinger VPS (wingleet.tech) --------------------
+        // ---- Hosted on the AMC server (icare-ams.fr) ------------------------
         [
             'name' => 'iSDR',
             'description' => 'Aircraft Maintenance & SDR Management Platform',
-            'url' => 'https://isdr.wingleet.tech',
+            'url' => 'https://staging-isdr.icare-ams.fr',
             'iconUrl' => '/app-logos/isdr.png',
             'databaseName' => 'app_isdr_prod',
             'isActive' => true,
@@ -38,7 +38,7 @@ final class ApplicationCatalog
         [
             'name' => 'iDeck',
             'description' => 'Work Package Scheduling & Hangar Deck Planning',
-            'url' => 'https://ideck.wingleet.tech',
+            'url' => 'https://staging-ideck.icare-ams.fr',
             'iconUrl' => '/app-logos/icare-ams.png',
             'databaseName' => null,
             'isActive' => true,
@@ -46,7 +46,7 @@ final class ApplicationCatalog
         [
             'name' => 'iPlanning',
             'description' => 'HR & Skills Planning Tool',
-            'url' => 'https://iplanninghr.wingleet.tech',
+            'url' => 'https://staging-iplanning.icare-ams.fr',
             'iconUrl' => '/app-logos/icare-ams.png',
             'databaseName' => null,
             'isActive' => true,
@@ -62,7 +62,7 @@ final class ApplicationCatalog
         [
             'name' => 'iCustomer',
             'description' => 'Customer Portal & MRO Request Tracking',
-            'url' => 'https://icustomer.wingleet.tech',
+            'url' => 'https://staging-icustomer.icare-ams.fr',
             'iconUrl' => '/app-logos/icustomer.png',
             'databaseName' => null,
             'isActive' => true,
@@ -70,17 +70,17 @@ final class ApplicationCatalog
         [
             'name' => 'iAsset',
             'description' => 'Asset, Tooling & GSE Inventory',
-            'url' => 'https://iasset.wingleet.tech',
+            'url' => 'https://staging-iasset.icare-ams.fr',
             'iconUrl' => '/app-logos/icare-ams.png',
             'databaseName' => null,
             'isActive' => true,
         ],
 
-        // ---- Hosted on the staging platform (wingleetdev.com) ---------------
+        // ---- Also on the AMC server (icare-ams.fr) --------------------------
         [
             'name' => 'iDismantling',
             'description' => 'Dismantling Management Platform',
-            'url' => 'https://staging-idismantling.wingleetdev.com',
+            'url' => 'https://staging-idismantling.icare-ams.fr',
             'iconUrl' => '/app-logos/idismantling.png',
             'databaseName' => 'app_idismantling_prod',
             'isActive' => true,
@@ -88,7 +88,16 @@ final class ApplicationCatalog
         [
             'name' => 'iKanban',
             'description' => 'Visual Task Tracking and Workflow Management Platform',
-            'url' => 'https://staging-ikanban.wingleetdev.com',
+            'url' => 'https://staging-ikanban.icare-ams.fr',
+            'iconUrl' => '/app-logos/icare-ams.png',
+            'databaseName' => null,
+            'isActive' => true,
+        ],
+
+        [
+            'name' => 'iPurchase',
+            'description' => 'Purchasing & Supplier Order Management',
+            'url' => 'https://staging-ipurchase.icare-ams.fr',
             'iconUrl' => '/app-logos/icare-ams.png',
             'databaseName' => null,
             'isActive' => true,
