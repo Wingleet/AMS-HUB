@@ -54,7 +54,7 @@ final class ApplicationCatalog
         [
             'name' => 'iQuality',
             'description' => 'Quality Control & Compliance Platform',
-            'url' => 'https://quality.wingleet.tech',
+            'url' => 'https://staging-iquality.icare-ams.fr',
             'iconUrl' => '/app-logos/icare-ams.png',
             'databaseName' => 'app_iquality_prod',
             'isActive' => true,
