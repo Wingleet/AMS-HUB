@@ -103,27 +103,21 @@ final class ApplicationCatalog
             'isActive' => true,
         ],
 
-        // ---- Deployed, but deliberately hidden from the launcher ------------
-        // These two run on the VPS and answer over HTTPS, but their tile is not
-        // wanted on the home page yet. The home page filters on `url`, not on
-        // `isActive`: an inactive entry still renders a tile carrying an
-        // "Inactive" badge, so only a null url actually removes it. The live
-        // address is kept here so restoring a tile is a one-line change.
         [
             'name' => 'iALB',
             'description' => 'Aircraft Log Book — Legs, Crews and Tech Situation',
-            'url' => null, // live on https://ialb.wingleet.tech (VPS port 8085)
+            'url' => 'https://staging-ialb.icare-ams.fr',
             'iconUrl' => '/app-logos/icare-ams.png',
             'databaseName' => null,
-            'isActive' => false,
+            'isActive' => true,
         ],
         [
             'name' => 'iTech',
             'description' => 'Mechanic Workbench — Job Cards and Time Booking',
-            'url' => null, // live on https://itech.wingleet.tech (VPS port 8091)
+            'url' => 'https://staging-itech.icare-ams.fr',
             'iconUrl' => '/app-logos/icare-ams.png',
             'databaseName' => null,
-            'isActive' => false,
+            'isActive' => true,
         ],
 
         // ---- Built, not hosted yet ------------------------------------------
