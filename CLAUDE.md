@@ -10,7 +10,7 @@
 
 ## 🚀 Staging deploys itself — push to `staging`
 
-`git push origin staging` updates https://staging-ihub.wingleetdev.com on its own. No SSH, no
+`git push origin staging` updates https://staging-ihub.icare-ams.fr on its own. No SSH, no
 manual `make` on the server.
 
 ```
@@ -37,7 +37,7 @@ output streamed back into the Actions log
 | Checkout on the host | `/var/www/ams-ihub` |
 | Build command | ``make deploy-staging` — compose build **plus** `doctrine:migrations:migrate`, `cache:clear` and `assets:install`` |
 | Host settings | `/etc/staging-deploy/ihub.conf` |
-| URL | https://staging-ihub.wingleetdev.com |
+| URL | https://staging-ihub.icare-ams.fr |
 | Deployment log | `/var/log/staging-deploy/ihub.log` |
 
 The deploy key is registered as a *forced command*: it cannot open a shell and
