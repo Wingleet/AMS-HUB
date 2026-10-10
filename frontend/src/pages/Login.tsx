@@ -5,6 +5,7 @@ import { useAuthStore } from "../store/authStore";
 import type { LoginFormData } from "../types";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { clearEverything, reloadFresh } from "../utils/appReset";
+import APP_VERSION from "../../APP_VERSION";
 
 /**
  * Sign-in page, deliberately mirroring iDeck's so the two applications feel
@@ -157,7 +158,14 @@ const Login = () => {
               className="w-full h-full object-contain"
             />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">AMS APPS HUB</h1>
+          <div className="mb-2 flex items-baseline justify-center gap-2">
+            <h1 className="text-3xl font-bold text-white">AMS APPS HUB</h1>
+            {/* The build being served — the only way a report made from this
+                screen can name the version it was seen on. */}
+            <span className="text-sm font-medium tabular-nums text-blue-200">
+              v{APP_VERSION}
+            </span>
+          </div>
           <p className="text-blue-200">Sign in to access your applications</p>
         </div>
 

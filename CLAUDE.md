@@ -83,11 +83,10 @@ itself, not as a follow-up commit.
 
 ### Single source of truth
 
-This project has **no version file yet**. Create one, mirroring the sibling
-applications (`ams-tarmac`, `tos-digital-sdr`): `frontend/APP_VERSION.ts`
-exporting the version as a default string, rendered in the shell's sidebar.
-Keep `frontend/package.json`'s `version` field in sync with it — same number,
-both files, same commit.
+`frontend/APP_VERSION.ts` exports the version as a default string, mirroring
+the sibling applications (`ams-tarmac`, `tos-digital-sdr`), and is rendered
+beside the name on the login page. Keep `frontend/package.json`'s `version`
+field in sync with it — same number, both files, same commit.
 
 ### How much to bump — `MAJOR.MINOR.PATCH`
 
