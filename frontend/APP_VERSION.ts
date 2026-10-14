@@ -7,4 +7,4 @@
  * must bump it (and `frontend/package.json`'s `version`, same number) in the
  * same commit, proportionally to the change's weight.
  */
-export default "1.0.0";
+export default "1.0.1";
