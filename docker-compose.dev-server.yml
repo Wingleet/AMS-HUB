@@ -1,0 +1,28 @@
+# Dev server overlay - the `dev` branch on the staging host, next to staging
+# Usage (on the host, from /var/www/ihub-dev):
+#   docker compose -f docker-compose.yml -f docker-compose.staging.yml -f docker-compose.dev-server.yml --env-file .env.staging up -d --build
+#
+# Same stack as staging, under other container names: the global caddy-proxy
+# reaches `ams-apps-hub-dev-caddy` on the `proxy` network for
+# https://dev.ihub.icare-ams.fr, and staging keeps `ams-apps-hub-*`. Networks and volumes
+# are already apart, named after the checkout's directory (the Compose
+# project): keep it `/var/www/ihub-dev`.
+#
+# The checkout's .env.staging is staging's with the host names rewritten
+# (DEFAULT_URI, CORS_ALLOW_ORIGIN -> dev.ihub.icare-ams.fr). Its database is
+# its own and started empty (2026-09-28): schema from Doctrine, catalogue from
+# app:load-applications; migrations run on every deploy.
+# Deployed on every push to `dev` by .github/workflows/deploy-dev.yml.
+
+services:
+  database:
+    container_name: ams-apps-hub-dev-database
+
+  backend:
+    container_name: ams-apps-hub-dev-backend
+
+  frontend:
+    container_name: ams-apps-hub-dev-frontend
+
+  caddy:
+    container_name: ams-apps-hub-dev-caddy

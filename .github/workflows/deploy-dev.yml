@@ -1,0 +1,86 @@
+# =============================================================================
+# Deploy iHub's `dev` branch to https://dev.ihub.icare-ams.fr
+# =============================================================================
+# Same mechanism as iKanban's dev server, on the staging host: the job only
+# opens an SSH connection, and /usr/local/bin/deploy-staging does the deployment
+# as the forced command of this key ("deploy-staging ihub-dev" in
+# ~debian/.ssh/authorized_keys). The key can deploy only this stack and cannot
+# obtain a shell.
+#
+# Per-stack settings live in /etc/staging-deploy/ihub-dev.conf on the host:
+# checkout /var/www/ihub-dev, branch `dev`, docker-compose.dev-server.yml
+# overlay, health check on the public URL, rollback to the previous commit on
+# failure.
+#
+# Secret required: DEV_DEPLOY_KEY (private half of this stack's deploy key).
+# =============================================================================
+name: Deploy dev
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch: # manual re-deploy from the Actions tab
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false # never interrupt a deployment in progress
+
+jobs:
+  deploy:
+    name: Deploy to dev.ihub.icare-ams.fr
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: dev
+      url: https://dev.ihub.icare-ams.fr
+
+    env:
+      DEV_HOST: 162.19.127.20
+      DEV_USER: debian
+      # Pinned host key: a rebuilt server makes the job fail loudly instead of
+      # trusting an unknown host. Update this line if the host is reinstalled.
+      DEV_HOST_KEY: "162.19.127.20 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC/DW25L+2/T/RVuw9j/OxOcH7lHsj1EzN2TQLD0wlxf"
+
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_KEY: ${{ secrets.DEV_DEPLOY_KEY }}
+        run: |
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo "::error::secret DEV_DEPLOY_KEY is missing"
+            exit 1
+          fi
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEV_HOST_KEY" > ~/.ssh/known_hosts
+
+      - name: Deploy ${{ github.sha }}
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              -o IdentitiesOnly=yes \
+              -o BatchMode=yes \
+              -o ConnectTimeout=15 \
+              -o ServerAliveInterval=30 \
+              "$DEV_USER@$DEV_HOST" "${{ github.sha }}"
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "### ✅ Dev server updated" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### ❌ Deployment failed — the server rolled back to the previous commit" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          {
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Author | ${{ github.actor }} |"
+            echo "| URL | https://dev.ihub.icare-ams.fr |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Clean up SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
