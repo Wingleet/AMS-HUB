@@ -193,7 +193,7 @@ install-staging: ## Install project in staging mode (first-time setup on staging
 		(echo "$(YELLOW)  ⚠ AMS sync failed — check AMS credentials in .env.staging$(NC)")
 	@echo "$(GREEN)✓ Staging installation completed!$(NC)"
 	@echo ""
-	@echo "$(GREEN)  • App : $(YELLOW)https://staging-ihub.wingleetdev.com$(NC)"
+	@echo "$(GREEN)  • App : $(YELLOW)https://staging-ihub.icare-ams.fr$(NC)"
 
 install: install-dev ## Alias for install-dev
 
@@ -555,7 +555,7 @@ deploy-staging: ## git pull + build images + start in staging mode
 	$(DOCKER_COMPOSE_STAGING) exec -T $(BACKEND_SERVICE) php bin/console cache:clear --env=prod
 	@echo "$(YELLOW)  • Installing assets...$(NC)"
 	$(DOCKER_COMPOSE_STAGING) exec -T $(BACKEND_SERVICE) php bin/console assets:install
-	@echo "$(GREEN)✓ Staging deployment complete! → https://staging-ihub.wingleetdev.com$(NC)"
+	@echo "$(GREEN)✓ Staging deployment complete! → https://staging-ihub.icare-ams.fr$(NC)"
 
 staging-rebuild: ## Rebuild staging images + restart
 	@echo "$(GREEN)▶ Rebuilding staging images...$(NC)"

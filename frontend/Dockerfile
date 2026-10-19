@@ -35,7 +35,12 @@ RUN npm ci
 COPY . .
 
 # Accept VITE_* build args so they get baked into the bundle
-ARG VITE_API_URL=http://localhost
+# Defaut VIDE, volontairement, comme VITE_DEFAULT_SERVER_DB juste en dessous :
+# apiClient.ts retombe alors sur window.location.origin et le bundle marche sur
+# n'importe quel domaine. Un defaut non vide gagne des que le build-arg est vide,
+# car Docker traite un build-arg vide comme non fourni -- c'est ce qui a fige
+# http://localhost dans le bundle de staging le 2026-09-05.
+ARG VITE_API_URL=
 ENV VITE_API_URL=$VITE_API_URL
 ARG VITE_DEFAULT_SERVER_DB=
 ENV VITE_DEFAULT_SERVER_DB=$VITE_DEFAULT_SERVER_DB

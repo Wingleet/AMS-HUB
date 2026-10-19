@@ -3,6 +3,9 @@ import { useState } from "react";
 import { authService } from "../services/authService";
 import { useAuthStore } from "../store/authStore";
 import type { LoginFormData } from "../types";
+import { ConfirmDialog } from "../components/ConfirmDialog";
+import { clearEverything, reloadFresh } from "../utils/appReset";
+import APP_VERSION from "../../APP_VERSION";
 
 /**
  * Sign-in page, deliberately mirroring iDeck's so the two applications feel
@@ -79,6 +82,22 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showServerDbPassword, setShowServerDbPassword] = useState(false);
 
+  /**
+   * Reset app — ported from iDeck/iPlanning's broom (Trello #67). Lives here,
+   * outside the form and below it, so it never sits beside the submit button:
+   * a destructive control next to "Sign in" is a mis-click waiting to happen.
+   * It ends the session the same way sign-out does, then drops everything
+   * else this browser holds for the app and reloads from scratch.
+   */
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+
+  const resetApp = async () => {
+    setIsResetting(true);
+    await clearEverything();
+    reloadFresh();
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
@@ -139,7 +158,14 @@ const Login = () => {
               className="w-full h-full object-contain"
             />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">AMS APPS HUB</h1>
+          <div className="mb-2 flex items-baseline justify-center gap-2">
+            <h1 className="text-3xl font-bold text-white">AMS APPS HUB</h1>
+            {/* The build being served — the only way a report made from this
+                screen can name the version it was seen on. */}
+            <span className="text-sm font-medium tabular-nums text-blue-200">
+              v{APP_VERSION}
+            </span>
+          </div>
           <p className="text-blue-200">Sign in to access your applications</p>
         </div>
 
@@ -303,8 +329,45 @@ const Login = () => {
           <p className="text-blue-300 text-sm">
             Use your iCare AMS credentials to sign in
           </p>
+
+          {/* The broom — Trello #67, ported from iDeck/iPlanning. OUTSIDE the
+              form and below it, not beside "Sign in": a destructive control
+              against the primary submit is exactly the mis-click this
+              placement avoids. */}
+          <button
+            type="button"
+            onClick={() => setConfirmReset(true)}
+            disabled={isLoading || isResetting}
+            title="Reset app — clears everything this browser holds for the application and re-downloads it"
+            className="mt-4 inline-flex items-center gap-2 rounded-lg border border-red-300/30 bg-red-500/10 px-3 py-2 text-sm text-red-200 hover:bg-red-500/20 hover:text-red-100 disabled:opacity-50"
+            style={{ minHeight: 0 }}
+          >
+            <span className="text-base leading-none" aria-hidden="true">
+              🧹
+            </span>
+            Reset app
+          </button>
         </div>
       </div>
+
+      {/* The app draws its own question. NEVER `window.confirm`: once somebody
+          ticks Chrome's "prevent this page from creating additional dialogs",
+          `confirm` stops drawing anything and simply returns false, so the
+          broom would read every press as "cancelled" and do nothing, silently,
+          for the rest of that tab's life. */}
+      <ConfirmDialog
+        isOpen={confirmReset}
+        title="Reset the app?"
+        message="This clears everything this browser holds for the application — preferences, the database remembered on this form, cached data — and re-downloads the application itself, then reloads."
+        confirmLabel="Reset the app"
+        tone="danger"
+        isProcessing={isResetting}
+        onConfirm={() => {
+          setConfirmReset(false);
+          void resetApp();
+        }}
+        onCancel={() => setConfirmReset(false)}
+      />
     </div>
   );
 };

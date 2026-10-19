@@ -56,7 +56,11 @@ services:
     build:
       target: production
       args:
-        - VITE_API_URL=${VITE_API_URL:-https://staging-ihub.wingleetdev.com}
+        # Vide par defaut, volontairement : apiClient.ts retombe alors sur
+        # window.location.origin, donc le build fonctionne sur n'importe quel
+        # domaine. Une valeur figee ici rend l'appel cross-origin depuis toute
+        # autre origine et le fait bloquer par CORS. Idem en prod (.env.vps.example).
+        - VITE_API_URL=${VITE_API_URL:-}
     container_name: ams-apps-hub-frontend
     expose:
       - "80"

@@ -19,8 +19,14 @@ export default defineConfig(({ mode }) => {
     ],
     define: {
       // Explicitly define environment variables
+      // Le repli est la chaine VIDE, pas une URL : apiClient.ts traite le vide
+      // comme "utilise window.location.origin", ce qui rend le bundle valable
+      // sur n'importe quel domaine. Un repli "http://localhost" ici annulait
+      // toute valeur vide venue du build-arg ou du compose, car `||` considere
+      // la chaine vide comme fausse -- le bundle de staging postait alors vers
+      // http://localhost depuis le navigateur (2026-09-05).
       "import.meta.env.VITE_API_URL": JSON.stringify(
-        env.VITE_API_URL || process.env.VITE_API_URL || "http://localhost",
+        env.VITE_API_URL || process.env.VITE_API_URL || "",
       ),
       // Prefills the Database field on the sign-in form. Defined explicitly
       // like VITE_API_URL above, so a value passed as a Docker build arg lands

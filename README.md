@@ -349,7 +349,7 @@ Consult the files in the root directory for:
 
 ## 🚀 VM Deployment
 
-To deploy the application on a virtual machine with a custom domain (e.g.: staging-ams-apps-hub.wingleetdev.com), see the complete guide: **[VM_DEPLOYMENT.md](VM_DEPLOYMENT.md)**
+To deploy the application on a virtual machine with a custom domain (e.g.: staging-ams-apps-hub.icare-ams.fr), see the complete guide: **[VM_DEPLOYMENT.md](VM_DEPLOYMENT.md)**
 
 The guide covers:
 
