@@ -57,7 +57,7 @@ class DevFixtures extends Fixture implements FixtureGroupInterface
      */
     private function createApplications(ObjectManager $manager): array
     {
-        $applicationsData = ApplicationCatalog::APPLICATIONS;
+        $applicationsData = ApplicationCatalog::entries();
 
         $applications = [];
         foreach ($applicationsData as $data) {
@@ -68,7 +68,8 @@ class DevFixtures extends Fixture implements FixtureGroupInterface
             $app->setIconUrl($data['iconUrl']);
             $app->setDatabaseName($data['databaseName']);
             $app->setIsActive($data['isActive']);
-            
+            $app->setSortOrder($data['sortOrder']);
+
             $manager->persist($app);
             $applications[$data['name']] = $app;
         }

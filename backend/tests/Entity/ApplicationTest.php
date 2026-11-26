@@ -80,6 +80,15 @@ class ApplicationTest extends TestCase
         $this->assertEquals($databaseName, $this->application->getDatabaseName());
     }
 
+    public function testSortOrderDefaultsToZeroAndCanBeSet(): void
+    {
+        $this->assertSame(0, $this->application->getSortOrder());
+
+        $this->application->setSortOrder(30);
+
+        $this->assertSame(30, $this->application->getSortOrder());
+    }
+
     public function testDatabaseNameMaxLength(): void
     {
         $longDatabaseName = str_repeat('a', 256);
