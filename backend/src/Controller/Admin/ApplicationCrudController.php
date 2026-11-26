@@ -6,6 +6,7 @@ use App\Entity\Application;
 use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractCrudController;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\BooleanField;
+use EasyCorp\Bundle\EasyAdminBundle\Field\IntegerField;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Crud;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Actions;
@@ -22,6 +23,8 @@ class ApplicationCrudController extends AbstractCrudController
     {
         return $crud
             ->setPaginatorPageSize(15)
+            // Same order as the launcher's tiles.
+            ->setDefaultSort(['sortOrder' => 'ASC', 'id' => 'ASC'])
             ->showEntityActionsInlined();
     }
 
@@ -36,6 +39,7 @@ class ApplicationCrudController extends AbstractCrudController
     if (Crud::PAGE_INDEX === $pageName) {
         // Index/List view
         return [
+            IntegerField::new('sortOrder')->setLabel('Order'),
             TextField::new('name'),
             TextField::new('databaseName'),
             BooleanField::new('isActive'),
@@ -60,6 +64,9 @@ class ApplicationCrudController extends AbstractCrudController
 
     $fields[] = TextField::new('databaseName');
     $fields[] = BooleanField::new('isActive');
+    $fields[] = IntegerField::new('sortOrder')
+        ->setLabel('Order')
+        ->setHelp('Rank of the tile on the launcher, smallest first. Seeded in steps of 10, so an application can be slotted between two others.');
 
     return $fields;
 }

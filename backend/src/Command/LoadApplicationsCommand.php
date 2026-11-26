@@ -31,7 +31,7 @@ class LoadApplicationsCommand extends Command
         
         $io->title('Loading Applications');
 
-        $applicationsData = ApplicationCatalog::APPLICATIONS;
+        $applicationsData = ApplicationCatalog::entries();
 
         $createdCount = 0;
         $updatedCount = 0;
@@ -52,7 +52,8 @@ class LoadApplicationsCommand extends Command
                     $app->getUrl() === $data['url'] &&
                     $app->getIconUrl() === $data['iconUrl'] &&
                     $app->getDatabaseName() === $data['databaseName'] &&
-                    $app->isActive() === $data['isActive']) {
+                    $app->isActive() === $data['isActive'] &&
+                    $app->getSortOrder() === $data['sortOrder']) {
                     $skippedCount++;
                     $io->text(sprintf('  • Skipping (already up-to-date): <comment>%s</comment>', $data['name']));
                     continue;
@@ -67,6 +68,7 @@ class LoadApplicationsCommand extends Command
             $app->setIconUrl($data['iconUrl']);
             $app->setDatabaseName($data['databaseName']);
             $app->setIsActive($data['isActive']);
+            $app->setSortOrder($data['sortOrder']);
         }
 
         $this->entityManager->flush();
