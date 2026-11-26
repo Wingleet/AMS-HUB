@@ -6,33 +6,39 @@ namespace App\Catalog;
  * Single source of truth for the AMS applications listed by the hub.
  *
  * Consumed by App\Command\LoadApplicationsCommand (prod seeding) and by
- * App\DataFixtures\DevFixtures (dev seeding) so both stay in sync.
+ * App\DataFixtures\DevFixtures (dev seeding) so both stay in sync. Both go
+ * through entries(), never APPLICATIONS directly, because it adds sortOrder.
+ *
+ * The order of the entries IS the order of the tiles on the launcher: each
+ * entry's sortOrder is derived from its position here (see entries()). The
+ * launcher order is iPlanning, iDeck, iTech, iKanban, iScan, iAsset,
+ * iCustomer, iSDR, iDismantling (HUB card #1, 2026-11-24).
  *
  * `url` is null for an application that is not hosted anywhere yet; such an
  * entry is seeded with isActive = false so it never renders as a dead link.
  * `databaseName` is informational only (shown in EasyAdmin) and is null for the
  * applications that own no database and read straight from the AMS REST API.
  * `iconUrl` points at a logo served by the hub (frontend/public/app-logos/) or
- * at an absolute URL; null falls back to the generated mark in AppMark.tsx.
- *
- * The logos are each application's own asset, copied from its repository and
- * downscaled to 128px. Only three are actually distinct — iSDR (magnifier),
- * iCustomer (customer figure) and iDismantling (crane and stripped fuselage);
- * iDeck, iPlanning, iQuality, iKanban, iALB, iTech and iAsset all ship the plain
- * shared iCare AMS artwork, so their tiles are identical by design, not by
- * oversight. Drop a dedicated file in app-logos/ and point the entry at it to
- * fix that.
+ * at an absolute URL. The launcher currently ignores it — AppMark shows the
+ * one AMS logo on every tile, by design — so it is kept only for EasyAdmin and
+ * for the day per-application logos come back.
  */
 final class ApplicationCatalog
 {
+    /**
+     * Gap between two consecutive sortOrder values, so an admin can slot an
+     * application between two others in EasyAdmin without renumbering.
+     */
+    public const SORT_ORDER_STEP = 10;
+
     public const APPLICATIONS = [
-        // ---- Hosted on the AMC server (icare-ams.fr) ------------------------
+        // ---- On the launcher, in this order --------------------------------
         [
-            'name' => 'iSDR',
-            'description' => 'Aircraft Maintenance & SDR Management Platform',
-            'url' => 'https://staging-isdr.icare-ams.fr',
-            'iconUrl' => '/app-logos/isdr.png',
-            'databaseName' => 'app_isdr_prod',
+            'name' => 'iPlanning',
+            'description' => 'HR & Skills Planning Tool',
+            'url' => 'https://staging-iplanning.icare-ams.fr',
+            'iconUrl' => '/app-logos/icare-ams.png',
+            'databaseName' => null,
             'isActive' => true,
         ],
         [
@@ -44,26 +50,29 @@ final class ApplicationCatalog
             'isActive' => true,
         ],
         [
-            'name' => 'iPlanning',
-            'description' => 'HR & Skills Planning Tool',
-            'url' => 'https://staging-iplanning.icare-ams.fr',
+            'name' => 'iTech',
+            'description' => 'Mechanic Workbench — Job Cards and Time Booking',
+            'url' => 'https://staging-itech.icare-ams.fr',
             'iconUrl' => '/app-logos/icare-ams.png',
             'databaseName' => null,
             'isActive' => true,
         ],
         [
-            'name' => 'iQuality',
-            'description' => 'Quality Control & Compliance Platform',
-            'url' => 'https://staging-iquality.icare-ams.fr',
+            'name' => 'iKanban',
+            'description' => 'Visual Task Tracking and Workflow Management Platform',
+            'url' => 'https://staging-ikanban.icare-ams.fr',
             'iconUrl' => '/app-logos/icare-ams.png',
-            'databaseName' => 'app_iquality_prod',
+            'databaseName' => null,
             'isActive' => true,
         ],
         [
-            'name' => 'iCustomer',
-            'description' => 'Customer Portal & MRO Request Tracking',
-            'url' => 'https://staging-icustomer.icare-ams.fr',
-            'iconUrl' => '/app-logos/icustomer.png',
+            // An Android app for the store's barcode-scanner handhelds: the
+            // tile opens its download page (release APK + install steps), the
+            // only web address iScan has.
+            'name' => 'iScan',
+            'description' => 'Store Barcode Scanner (Android) — Bin Moves, Receptions, Issues & Stock Take',
+            'url' => 'https://iscan.icare-ams.fr',
+            'iconUrl' => '/app-logos/icare-ams.png',
             'databaseName' => null,
             'isActive' => true,
         ],
@@ -75,8 +84,22 @@ final class ApplicationCatalog
             'databaseName' => null,
             'isActive' => true,
         ],
-
-        // ---- Also on the AMC server (icare-ams.fr) --------------------------
+        [
+            'name' => 'iCustomer',
+            'description' => 'Customer Portal & MRO Request Tracking',
+            'url' => 'https://staging-icustomer.icare-ams.fr',
+            'iconUrl' => '/app-logos/icustomer.png',
+            'databaseName' => null,
+            'isActive' => true,
+        ],
+        [
+            'name' => 'iSDR',
+            'description' => 'Aircraft Maintenance & SDR Management Platform',
+            'url' => 'https://staging-isdr.icare-ams.fr',
+            'iconUrl' => '/app-logos/isdr.png',
+            'databaseName' => 'app_isdr_prod',
+            'isActive' => true,
+        ],
         [
             'name' => 'iDismantling',
             'description' => 'Dismantling Management Platform',
@@ -85,43 +108,35 @@ final class ApplicationCatalog
             'databaseName' => 'app_idismantling_prod',
             'isActive' => true,
         ],
-        [
-            'name' => 'iKanban',
-            'description' => 'Visual Task Tracking and Workflow Management Platform',
-            'url' => 'https://staging-ikanban.icare-ams.fr',
-            'iconUrl' => '/app-logos/icare-ams.png',
-            'databaseName' => null,
-            'isActive' => true,
-        ],
 
+        // ---- Deployed, but deliberately hidden from the launcher ------------
+        // All three run on the AMC server and answer over HTTPS at the
+        // addresses in the comments below; their tile is simply not wanted on
+        // the home page. The home page filters on `url`, not on `isActive`: an
+        // inactive entry still renders a tile carrying an "Inactive" badge, so
+        // only a null url actually removes it. The live address is kept here so
+        // restoring a tile is a one-line change. iPurchase and iQuality were
+        // taken off on HUB card #1 (2026-11-24).
         [
             'name' => 'iPurchase',
             'description' => 'Purchasing & Supplier Order Management',
-            'url' => 'https://staging-ipurchase.icare-ams.fr',
-            'iconUrl' => '/app-logos/icare-ams.png',
-            'databaseName' => null,
-            'isActive' => true,
-        ],
-
-        // ---- Deployed, but deliberately hidden from the launcher ------------
-        // Both run on the AMC server and answer over HTTPS at the addresses in
-        // the comments below; their tile is simply not wanted on the home page
-        // for now. The home page filters on `url`, not on `isActive`: an
-        // inactive entry still renders a tile carrying an "Inactive" badge, so
-        // only a null url actually removes it. The live address is kept here so
-        // restoring a tile is a one-line change.
-        [
-            'name' => 'iALB',
-            'description' => 'Aircraft Log Book — Legs, Crews and Tech Situation',
-            'url' => null, // live on https://staging-ialb.icare-ams.fr
+            'url' => null, // live on https://staging-ipurchase.icare-ams.fr
             'iconUrl' => '/app-logos/icare-ams.png',
             'databaseName' => null,
             'isActive' => false,
         ],
         [
-            'name' => 'iTech',
-            'description' => 'Mechanic Workbench — Job Cards and Time Booking',
-            'url' => null, // live on https://staging-itech.icare-ams.fr
+            'name' => 'iQuality',
+            'description' => 'Quality Control & Compliance Platform',
+            'url' => null, // live on https://staging-iquality.icare-ams.fr
+            'iconUrl' => '/app-logos/icare-ams.png',
+            'databaseName' => 'app_iquality_prod',
+            'isActive' => false,
+        ],
+        [
+            'name' => 'iALB',
+            'description' => 'Aircraft Log Book — Legs, Crews and Tech Situation',
+            'url' => null, // live on https://staging-ialb.icare-ams.fr
             'iconUrl' => '/app-logos/icare-ams.png',
             'databaseName' => null,
             'isActive' => false,
@@ -193,4 +208,20 @@ final class ApplicationCatalog
             'isActive' => true,
         ],
     ];
+
+    /**
+     * The catalog with each entry's sortOrder, derived from its position:
+     * 10 for the first entry, 20 for the second, and so on.
+     *
+     * @return list<array{name: string, description: string, url: ?string, iconUrl: ?string, databaseName: ?string, isActive: bool, sortOrder: int}>
+     */
+    public static function entries(): array
+    {
+        $entries = [];
+        foreach (array_values(self::APPLICATIONS) as $index => $entry) {
+            $entries[] = $entry + ['sortOrder' => ($index + 1) * self::SORT_ORDER_STEP];
+        }
+
+        return $entries;
+    }
 }

@@ -44,7 +44,11 @@ use Symfony\Component\Validator\Constraints as Assert;
         ),
     ],
     normalizationContext: ['groups' => ['application:read']],
-    denormalizationContext: ['groups' => ['application:write']]
+    denormalizationContext: ['groups' => ['application:write']],
+    // The launcher draws its tiles in the order the collection arrives, so
+    // the order is decided here; id breaks ties so it never depends on the
+    // database's whim.
+    order: ['sortOrder' => 'ASC', 'id' => 'ASC']
 )]
 class Application
 {
@@ -95,6 +99,17 @@ class Application
     #[ORM\Column(type: 'boolean', nullable: false, options: ['default' => true])]
     #[Groups(['application:read', 'application:write'])]
     private bool $isActive = true;
+
+    /**
+     * Rank of the tile on the launcher, smallest first.
+     *
+     * Seeded from the position of the entry in App\Catalog\ApplicationCatalog
+     * (steps of 10, so an admin can slot an application between two others
+     * without renumbering the rest).
+     */
+    #[ORM\Column(type: 'integer', nullable: false, options: ['default' => 0])]
+    #[Groups(['application:read', 'application:write'])]
+    private int $sortOrder = 0;
 
     #[ORM\Column(type: 'datetime', nullable: true)]
     #[Groups(['application:read'])]
@@ -196,6 +211,18 @@ class Application
     public function setIsActive(bool $isActive): static
     {
         $this->isActive = $isActive;
+
+        return $this;
+    }
+
+    public function getSortOrder(): int
+    {
+        return $this->sortOrder;
+    }
+
+    public function setSortOrder(int $sortOrder): static
+    {
+        $this->sortOrder = $sortOrder;
 
         return $this;
     }

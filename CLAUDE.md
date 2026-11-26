@@ -50,6 +50,14 @@ on 162.19.127.20).
 - `.env.staging` lives on the server only. Adding an environment variable means
   editing that file on the host **before** pushing, otherwise the container
   starts without it.
+- ⚠️ **The launcher's application list.** `backend/src/Catalog/ApplicationCatalog.php`
+  only reaches a database through `app:load-applications`, which no deployment
+  runs. A change of tiles (add, hide, reorder) must therefore also ship as a
+  Doctrine migration that updates the `application` rows — see
+  `Version20261126120000` (HUB card #1). The tiles are drawn in `sort_order`
+  (the catalog position × 10, editable in EasyAdmin), and only rows with a `url`
+  are drawn: hiding a tile = `url` null. Never delete a row, subscriptions and
+  SSO codes point at it.
 - ⚠️ This application's deployment **runs Doctrine migrations** on the staging
   database, because that is what its own `deploy-staging` target does and a code
   change often needs them. A migration that destroys data will therefore be
